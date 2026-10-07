@@ -117,7 +117,9 @@ def predict_iris(data: IrisData):
 
     # ส่งผลลัพธ์กลับไปในรูปแบบ JSON
     return {
+        "id" : "683380589-3",
         "input": data.dict(),
         "predicted_class_index": int(prediction_index),
         "predicted_class_name": predicted_class_name
     }
+
