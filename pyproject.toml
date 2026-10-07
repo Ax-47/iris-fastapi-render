@@ -1,0 +1,22 @@
+[project]
+name = "x"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "artiLnwza", email = "artiwarah40@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[all]>=0.142.2",
+    "joblib>=1.6.0",
+    "numpy>=2.5.3",
+    "scikit-learn>=1.9.1",
+]
+
+[project.scripts]
+x = "x:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
