@@ -1,7 +1,8 @@
+from __future__ import annotations
 
-from pathlib import Path
 import hashlib
 import json
+from pathlib import Path
 from typing import Annotated
 
 import numpy as np
@@ -9,15 +10,25 @@ from fastapi import FastAPI
 from joblib import load
 from pydantic import BaseModel, ConfigDict, Field
 
-metadata = json.loads("metadata.json").read_text(encoding="utf-8"))
-model = load("iris_random_forest.joblib")
-model_sha256 = hashlib.sha256("metadata.json".read_bytes()).hexdigest()
+BASE_DIR = Path(__file__).resolve().parents[2]
+METADATA_PATH = BASE_DIR / "metadata.json"
+MODEL_PATH = BASE_DIR / "iris_random_forest.joblib"
+
+with METADATA_PATH.open("r", encoding="utf-8") as fh:
+    metadata = json.load(fh)
+
+model = load(MODEL_PATH)
+model_sha256 = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
 if model_sha256 != metadata["model_sha256"]:
     raise RuntimeError("Model and metadata do not match")
 
-app = FastAPI(title="Iris Prediction API", version="1.0.0",
-              description="Educational Random Forest deployment on Render")
+app = FastAPI(
+    title="Iris Prediction API",
+    version="1.0.0",
+    description="Educational Random Forest deployment on Render",
+)
 PositiveFinite = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+
 
 class IrisInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -26,14 +37,20 @@ class IrisInput(BaseModel):
     petal_length: PositiveFinite
     petal_width: PositiveFinite
 
+
 @app.get("/")
 def root():
     return {"message": "Iris Prediction API", "docs": "/docs", "health": "/health"}
 
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_version": metadata["model_version"],
-            "model_sha256": model_sha256}
+    return {
+        "status": "ok",
+        "model_version": metadata["model_version"],
+        "model_sha256": model_sha256,
+    }
+
 
 @app.post("/predict")
 def predict(data: IrisInput):
@@ -48,6 +65,13 @@ def predict(data: IrisInput):
         "input": payload,
         "predicted_class_index": predicted,
         "predicted_class_name": names[predicted],
-        "probabilities": {names[int(k)]: float(p)
-                          for k, p in zip(model.classes_, probabilities)}
+        "probabilities": {
+            names[int(k)]: float(p) for k, p in zip(model.classes_, probabilities)
+        },
     }
+
+
+def main() -> None:
+    import uvicorn
+
+    uvicorn.run("x:app", host="0.0.0.0", port=8000)
