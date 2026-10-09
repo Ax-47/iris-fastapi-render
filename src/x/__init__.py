@@ -9,7 +9,15 @@ from fastapi import FastAPI
 from joblib import load
 from pydantic import BaseModel, ConfigDict, Field
 
-BASE_DIR = Path(__file__).resolve()
+def _find_root(start: Path) -> Path:
+    for p in [start, *start.parents]:
+        if (p / "metadata.json").exists():
+            return p
+    raise FileNotFoundError(f"metadata.json not found above {start}")
+
+
+BASE_DIR = _find_root(Path(__file__).resolve().parent)
+
 MODEL_PATH = BASE_DIR / "iris_random_forest.joblib"
 metadata = json.loads((BASE_DIR / "metadata.json").read_text(encoding="utf-8"))
 model = load(MODEL_PATH)
