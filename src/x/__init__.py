@@ -9,19 +9,9 @@ from fastapi import FastAPI
 from joblib import load
 from pydantic import BaseModel, ConfigDict, Field
 
-def _find_root(start: Path) -> Path:
-    for p in [start, *start.parents]:
-        if (p / "metadata.json").exists():
-            return p
-    raise FileNotFoundError(f"metadata.json not found above {start}")
-
-
-BASE_DIR = _find_root(Path(__file__).resolve().parent)
-
-MODEL_PATH = BASE_DIR / "iris_random_forest.joblib"
-metadata = json.loads((BASE_DIR / "metadata.json").read_text(encoding="utf-8"))
-model = load(MODEL_PATH)
-model_sha256 = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
+metadata = json.loads("metadata.json").read_text(encoding="utf-8"))
+model = load("iris_random_forest.joblib")
+model_sha256 = hashlib.sha256("metadata.json".read_bytes()).hexdigest()
 if model_sha256 != metadata["model_sha256"]:
     raise RuntimeError("Model and metadata do not match")
 
