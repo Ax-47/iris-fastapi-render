@@ -27,6 +27,7 @@ app = FastAPI(
     version="1.0.0",
     description="Educational Random Forest deployment on Render",
 )
+
 PositiveFinite = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 
 
@@ -70,8 +71,3 @@ def predict(data: IrisInput):
         },
     }
 
-
-def main() -> None:
-    import uvicorn
-
-    uvicorn.run("x:app", host="0.0.0.0", port=8000)
