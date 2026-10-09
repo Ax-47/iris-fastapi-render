@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from joblib import load
 from pydantic import BaseModel, ConfigDict, Field
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve()
 MODEL_PATH = BASE_DIR / "iris_random_forest.joblib"
 metadata = json.loads((BASE_DIR / "metadata.json").read_text(encoding="utf-8"))
 model = load(MODEL_PATH)
