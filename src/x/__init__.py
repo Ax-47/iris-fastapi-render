@@ -1,125 +1,55 @@
 
-# main.api.py
-# นี่คือไฟล์ที่จะใช้รันเป็น Web Server ของเรา
+from pathlib import Path
+import hashlib
+import json
+from typing import Annotated
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-from joblib import load
 import numpy as np
-
-# สร้างแอป FastAPI พร้อมใส่ Metadata ที่สวยงาม
-app = FastAPI(
-    title="Iris Species Prediction API",
-    description="An API to predict the species of Iris flowers. Created for educational purposes.",
-    version="1.0.0"
-)
-
-# โหลดโมเดลที่ฝึกไว้
-# โค้ดนี้จะทำงานเมื่อ Server เริ่มต้นขึ้น
-try:
-    model = load('iris_random_forest.joblib')
-    target_names = ['setosa', 'versicolor', 'virginica']
-except FileNotFoundError:
-    model = None
-    target_names = []
-
-# กำหนดโครงสร้างข้อมูล Input ที่จะรับเข้ามาผ่าน API
-class IrisData(BaseModel):
-    sepal_length: float
-    sepal_width: float
-    petal_length: float
-    petal_width: float
-
-# สร้าง Endpoint พื้นฐานสำหรับทดสอบ
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the Iris Prediction API! Go to /docs to see the documentation."}
-
-# สร้าง Endpoint สำหรับการทำนาย (/predict)
-# @app.post หมายถึงรับข้อมูลผ่าน HTTP POST method
-@app.post("/predict")
-def predict_iris(data: IrisData):
-    if model is None:
-        return {"error": "Model not found."}
-
-    # แปลงข้อมูลจาก API เป็น numpy array ที่โมเดลเข้าใจ
-    input_data = np.array([[
-        data.sepal_length,
-        data.sepal_width,
-        data.petal_length,
-        data.petal_width
-    ]])
-
-    # ทำนายผล
-    prediction_index = model.predict(input_data)[0]
-    predicted_class_name = target_names[prediction_index]
-
-    # ส่งผลลัพธ์กลับไปในรูปแบบ JSON
-    return {
-        "input": data.dict(),
-        "predicted_class_index": int(prediction_index),
-        "predicted_class_name": predicted_class_name
-    }
-# main.api.py
-# นี่คือไฟล์ที่จะใช้รันเป็น Web Server ของเรา
-
 from fastapi import FastAPI
-from pydantic import BaseModel
 from joblib import load
-import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
 
-# สร้างแอป FastAPI พร้อมใส่ Metadata ที่สวยงาม
-app = FastAPI(
-    title="Iris Species Prediction API",
-    description="An API to predict the species of Iris flowers. Created for educational purposes.",
-    version="1.0.0"
-)
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "iris_random_forest.joblib"
+metadata = json.loads((BASE_DIR / "metadata.json").read_text(encoding="utf-8"))
+model = load(MODEL_PATH)
+model_sha256 = hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
+if model_sha256 != metadata["model_sha256"]:
+    raise RuntimeError("Model and metadata do not match")
 
-# โหลดโมเดลที่ฝึกไว้
-# โค้ดนี้จะทำงานเมื่อ Server เริ่มต้นขึ้น
-try:
-    model = load('iris_random_forest.joblib')
-    target_names = ['setosa', 'versicolor', 'virginica']
-except FileNotFoundError:
-    model = None
-    target_names = []
+app = FastAPI(title="Iris Prediction API", version="1.0.0",
+              description="Educational Random Forest deployment on Render")
+PositiveFinite = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 
-# กำหนดโครงสร้างข้อมูล Input ที่จะรับเข้ามาผ่าน API
-class IrisData(BaseModel):
-    sepal_length: float
-    sepal_width: float
-    petal_length: float
-    petal_width: float
+class IrisInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sepal_length: PositiveFinite
+    sepal_width: PositiveFinite
+    petal_length: PositiveFinite
+    petal_width: PositiveFinite
 
-# สร้าง Endpoint พื้นฐานสำหรับทดสอบ
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to the Iris Prediction API! Go to /docs to see the documentation."}
+def root():
+    return {"message": "Iris Prediction API", "docs": "/docs", "health": "/health"}
 
-# สร้าง Endpoint สำหรับการทำนาย (/predict)
-# @app.post หมายถึงรับข้อมูลผ่าน HTTP POST method
+@app.get("/health")
+def health():
+    return {"status": "ok", "model_version": metadata["model_version"],
+            "model_sha256": model_sha256}
+
 @app.post("/predict")
-def predict_iris(data: IrisData):
-    if model is None:
-        return {"error": "Model not found."}
-
-    # แปลงข้อมูลจาก API เป็น numpy array ที่โมเดลเข้าใจ
-    input_data = np.array([[
-        data.sepal_length,
-        data.sepal_width,
-        data.petal_length,
-        data.petal_width
-    ]])
-
-    # ทำนายผล
-    prediction_index = model.predict(input_data)[0]
-    predicted_class_name = target_names[prediction_index]
-
-    # ส่งผลลัพธ์กลับไปในรูปแบบ JSON
+def predict(data: IrisInput):
+    payload = data.model_dump()
+    features = np.asarray([[payload[key] for key in metadata["feature_order"]]])
+    predicted = int(model.predict(features)[0])
+    probabilities = model.predict_proba(features)[0]
+    names = metadata["target_names"]
     return {
-        "id" : "683380667-9",
-        "input": data.dict(),
-        "predicted_class_index": int(prediction_index),
-        "predicted_class_name": predicted_class_name
+        "ID": "683380667-9",
+        "model_version": metadata["model_version"],
+        "input": payload,
+        "predicted_class_index": predicted,
+        "predicted_class_name": names[predicted],
+        "probabilities": {names[int(k)]: float(p)
+                          for k, p in zip(model.classes_, probabilities)}
     }
-
